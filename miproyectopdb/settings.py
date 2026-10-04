@@ -17,7 +17,7 @@ import pymysql
 pymysql.install_as_MySQLdb()
 
 # config: función de python-decouple que lee valores del archivo .env
-from decouple import config
+from decouple import config, Csv
 
 
 
@@ -29,13 +29,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-f$r4bb3t7a5(jnmijax7#@=j5d09g4hg7!ns82zjzc3&1otj+('
+# se lee de .env (local) o del panel de Render (producción)
+SECRET_KEY = config('SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# default=False: si falta la variable, queda apagado (lo seguro); cast=bool convierte "True"/"False" en booleano
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+# dominios permitidos, separados por comas en la variable
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=Csv())
+
+# direcciones completas (con https://) desde las que se aceptan formularios, como el login de /admin
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='', cast=Csv())
 
 
 # Application definition
@@ -54,6 +58,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+     # WhiteNoiseMiddleware: ← ESTA ES LA ÚNICA LÍNEA NUEVA; entrega los archivos CSS/JS/imágenes
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -143,6 +149,25 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# STATIC_ROOT: NUEVO — carpeta "staticfiles" donde collectstatic junta TODOS los CSS/JS/imágenes del proyecto
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# STORAGES: NUEVO — le dice a Django cómo guardar archivos
+STORAGES = {
+    # "default": archivos que suban los usuarios; se deja el sistema normal de Django (obligatorio declararlo)
+    "default": {
+        # FileSystemStorage: guarda en disco, igual que antes de este cambio
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    # cierre de la config de "default"
+    },
+    # "staticfiles": tus CSS/JS/imágenes; whitenoise los comprime y les pone una "huella" en el nombre
+    "staticfiles": {
+        # CompressedManifestStaticFilesStorage: el almacenamiento optimizado que trae whitenoise
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    # cierre de la config de "staticfiles"
+    },
+# cierre del diccionario STORAGES
+}
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
